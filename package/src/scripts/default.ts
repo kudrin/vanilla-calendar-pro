@@ -25,6 +25,8 @@ export default class DefaultOptionsCalendar {
 		range: {
 			min: undefined,
 			max: undefined,
+			limitMin: 0,
+			limitMax: 365,
 			disablePast: false,
 			disableGaps: false,
 			edgesOnly: false,
@@ -97,6 +99,8 @@ export default class DefaultOptionsCalendar {
 	HTMLInputElement?: HTMLInputElement;
 	rangeMin!: T.FormatDateString;
 	rangeMax!: T.FormatDateString;
+	limitMin!: number;
+	limitMax!: number;
 	rangeDisabled!: T.FormatDateString[];
 	rangeEnabled!: T.FormatDateString[];
 	selectedDates!: T.FormatDateString[];

@@ -36,6 +36,8 @@ declare class VanillaCalendar implements T.IVanillaCalendar {
 	readonly HTMLInputElement?: HTMLInputElement;
 	readonly rangeMin: T.FormatDateString;
 	readonly rangeMax: T.FormatDateString;
+	readonly limitMin: number;
+	readonly limitMax: number;
 	readonly rangeDisabled: T.FormatDateString[];
 	readonly rangeEnabled: T.FormatDateString[];
 	readonly selectedDates: T.FormatDateString[];

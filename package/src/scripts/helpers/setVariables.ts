@@ -68,6 +68,10 @@ const initRange = (self: VanillaCalendar) => {
 		self.rangeMin = self.rangeEnabled[0];
 		self.rangeMax = self.rangeEnabled[self.rangeEnabled.length - 1];
 	}
+
+	// Initialize limitMin and limitMax if needed
+	self.limitMin = self.settings.range.limitMin; // Assuming you have limitMin in settings
+	self.limitMax = self.settings.range.limitMax; // Assuming you have limitMax in settings
 };
 
 const initSelectedDates = (self: VanillaCalendar) => {

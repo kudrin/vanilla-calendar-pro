@@ -29,6 +29,9 @@ export interface IRange {
 	min?: FormatDateString | 'today';
 	/** This parameter sets the maximum date that the user can choose */
 	max?: FormatDateString | 'today';
+
+	limitMin: number;
+	limitMax: number;
 	/** This parameter disables all past days. */
 	disablePast: boolean;
 	/**
@@ -207,6 +210,8 @@ export interface IVanillaCalendar {
 	readonly HTMLInputElement?: HTMLInputElement;
 	readonly rangeMin: FormatDateString;
 	readonly rangeMax: FormatDateString;
+	readonly limitMin: number;
+	readonly limitMax: number;
 	readonly rangeDisabled: FormatDateString[];
 	readonly rangeEnabled: FormatDateString[];
 	readonly selectedDates: FormatDateString[];

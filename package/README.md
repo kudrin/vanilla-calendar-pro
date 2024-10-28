@@ -1,5 +1,40 @@
 # VanillaCalendar - A Lightweight, Feature-Rich JavaScript Date and Time Picker
 
+## Моя редакция
+Для своего проекта добавил limitMin, limitMax параметры.
+
+```js
+settings: {
+	selection: {
+		day: 'multiple-ranged', // работают только c `multiple-ranged`
+			month: false,
+			year: false
+	},
+	range: {
+		min: '2000-01-01',
+			max: '2024-10-31',
+			limitMin: 7,            // Минимальное количесвто дней при одном выделении
+			limitMax: 14,           // Максимальное --//--
+	}
+}
+```
+
+Теперь про сборку.
+
+Сборка выполняется двумя командами:
+```bash
+yarn dist   # собираем дистрибутив
+yarn minify # делаем его компактным
+```
+
+Не заю почему но такя сборка не доавляет строку
+```js
+export default VanillaCalendar;
+```
+
+ее приходится добавлять в конце файла.
+
+
 [![vanilla-calendar preview](https://vanilla-calendar.pro/vanilla-calendar-preview.png)](https://vanilla-calendar.pro/)
 
 [![version](https://img.shields.io/npm/v/vanilla-calendar-pro.svg)](https://npmjs.com/package/vanilla-calendar-pro)
