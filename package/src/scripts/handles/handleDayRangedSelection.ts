@@ -2,7 +2,6 @@ import { FormatDateString } from '@package/types';
 import VanillaCalendar from '@src/vanilla-calendar';
 import getDateString from '@scripts/helpers/getDateString';
 import getDate from '@scripts/helpers/getDate';
-import parseDates from '@scripts/helpers/parseDates';
 import create from '@scripts/create';
 
 const current: {
@@ -13,6 +12,13 @@ const current: {
 	self: null,
 	rangeMin: undefined,
 	rangeMax: undefined,
+};
+
+const getDateFromString = (dateStr: string): Date => {
+	if (dateStr === 'today') {
+		return new Date();
+	}
+	return getDate(dateStr as FormatDateString);
 };
 
 const removeHoverEffect = () => {
@@ -69,14 +75,16 @@ const countActiveDays = (
 	while (
 		(increment > 0 && currentDate <= endDate)
 		|| (increment < 0 && currentDate >= endDate)
-		) {
+	) {
 		const dateString = getDateString(currentDate);
 
 		// Проверяем, что текущая дата находится в пределах диапазона min/max
-		if (currentDate < rangeMinDate || currentDate > rangeMaxDate) {
-			currentDate.setDate(currentDate.getDate() + increment);
-			continue;
+		if (currentDate >= rangeMinDate && currentDate <= rangeMaxDate) {
+			if (!disabledDatesSet.has(dateString)) {
+				activeDays++;
+			}
 		}
+		currentDate.setDate(currentDate.getDate() + increment);
 
 		if (!disabledDatesSet.has(dateString)) {
 			activeDays++;
@@ -172,14 +180,14 @@ const handleHoverDaysEvent = (e: MouseEvent) => {
 	const hoverDate = getDate(btnDayEl.dataset.calendarDay as FormatDateString);
 
 	const disabledDatesSet = new Set(current.self.rangeDisabled);
-	const rangeMinDate = getDate(current.self.range?.min || '1970-01-01');
-	const rangeMaxDate = getDate(current.self.range?.max || '9999-12-31');
+	const rangeMinDate = getDateFromString(current.self.settings.range?.min || '1970-01-01');
+	const rangeMaxDate = getDateFromString(current.self.settings.range?.max || '9999-12-31');
 
 	const adjustedEndDate = adjustEndDateForLimits(
 		startDate,
 		hoverDate,
-		current.self.limitMin,
-		current.self.limitMax,
+		current.self.settings.range.limitMin,
+		current.self.settings.range.limitMax,
 		disabledDatesSet,
 		rangeMinDate,
 		rangeMaxDate,
@@ -208,10 +216,14 @@ const handleHoverDaysEvent = (e: MouseEvent) => {
 	while (currentDate <= end) {
 		const dateString = getDateString(currentDate);
 
-		if (currentDate < rangeMinDate || currentDate > rangeMaxDate) {
-			currentDate.setDate(currentDate.getDate() + increment);
-			continue;
+		if (currentDate >= rangeMinDate && currentDate <= rangeMaxDate) {
+			if (!disabledDatesSet.has(dateString)) {
+				const isFirstDay = currentDate.getTime() === start.getTime();
+				const isLastDay = currentDate.getTime() === end.getTime();
+				addHoverEffect(new Date(currentDate), isFirstDay, isLastDay);
+			}
 		}
+		currentDate.setDate(currentDate.getDate() + increment);
 
 		if (!disabledDatesSet.has(dateString)) {
 			const isFirstDay = currentDate.getTime() === start.getTime();
@@ -234,8 +246,8 @@ const handleCancelSelectionDays = (e: KeyboardEvent) => {
 
 const handleDayRangedSelection = (self: VanillaCalendar, formattedDate?: FormatDateString) => {
 	if (formattedDate) {
-		const rangeMinDate = getDate(self.range?.min || '1970-01-01');
-		const rangeMaxDate = getDate(self.range?.max || '9999-12-31');
+		const rangeMinDate = getDateFromString(self.settings.range?.min || '1970-01-01');
+		const rangeMaxDate = getDateFromString(self.settings.range?.max || '9999-12-31');
 
 		if (self.selectedDates.length === 0) {
 			// Проверяем, что выбранная дата находится в пределах диапазона
@@ -257,8 +269,8 @@ const handleDayRangedSelection = (self: VanillaCalendar, formattedDate?: FormatD
 			const adjustedEndDate = adjustEndDateForLimits(
 				startDate,
 				endDate,
-				self.limitMin,
-				self.limitMax,
+				self.settings.range.limitMin,
+				self.settings.range.limitMax,
 				disabledDatesSet,
 				rangeMinDate,
 				rangeMaxDate,
@@ -288,13 +300,10 @@ const handleDayRangedSelection = (self: VanillaCalendar, formattedDate?: FormatD
 			while (currentDate <= end) {
 				const dateString = getDateString(currentDate);
 
-				if (currentDate < rangeMinDate || currentDate > rangeMaxDate) {
-					currentDate.setDate(currentDate.getDate() + 1);
-					continue;
-				}
-
-				if (!disabledDatesSet.has(dateString)) {
-					selectedDates.push(dateString);
+				if (currentDate >= rangeMinDate && currentDate <= rangeMaxDate) {
+					if (!disabledDatesSet.has(dateString)) {
+						selectedDates.push(dateString);
+					}
 				}
 				currentDate.setDate(currentDate.getDate() + 1);
 			}
