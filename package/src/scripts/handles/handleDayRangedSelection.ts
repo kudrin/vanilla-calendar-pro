@@ -38,14 +38,7 @@ const addHoverEffect = (day: Date, isFirstDay: boolean, isLastDay: boolean) => {
 	const formattedDate = getDateString(day);
 	const { CSSClasses } = current.self;
 
-	// Проверяем на минимальную и максимальную дату
-	if (
-		(current.rangeMin && formattedDate < current.rangeMin)
-		|| (current.rangeMax && formattedDate > current.rangeMax)
-	) {
-		return;
-	}
-
+	// Пропускаем, если день отключён
 	if (current.self.rangeDisabled?.includes(formattedDate)) return;
 
 	const dayEls: NodeListOf<HTMLDivElement> = current.self.HTMLElement?.querySelectorAll(
@@ -63,6 +56,109 @@ const addHoverEffect = (day: Date, isFirstDay: boolean, isLastDay: boolean) => {
 	});
 };
 
+const countActiveDays = (
+	startDate: Date,
+	endDate: Date,
+	disabledDatesSet: Set<FormatDateString>,
+	rangeMinDate: Date,
+	rangeMaxDate: Date,
+): number => {
+	let activeDays = 0;
+	const increment = startDate <= endDate ? 1 : -1;
+	const currentDate = new Date(startDate);
+	while (
+		(increment > 0 && currentDate <= endDate)
+		|| (increment < 0 && currentDate >= endDate)
+		) {
+		const dateString = getDateString(currentDate);
+
+		// Проверяем, что текущая дата находится в пределах диапазона min/max
+		if (currentDate < rangeMinDate || currentDate > rangeMaxDate) {
+			currentDate.setDate(currentDate.getDate() + increment);
+			continue;
+		}
+
+		if (!disabledDatesSet.has(dateString)) {
+			activeDays++;
+		}
+		currentDate.setDate(currentDate.getDate() + increment);
+	}
+	return activeDays;
+};
+
+const adjustEndDateForLimits = (
+	startDate: Date,
+	initialEndDate: Date,
+	limitMin: number | undefined,
+	limitMax: number | undefined,
+	disabledDatesSet: Set<FormatDateString>,
+	rangeMinDate: Date,
+	rangeMaxDate: Date,
+): Date => {
+	const increment = startDate <= initialEndDate ? 1 : -1;
+	let adjustedEndDate = new Date(initialEndDate);
+
+	let activeDayCount = countActiveDays(
+		startDate,
+		adjustedEndDate,
+		disabledDatesSet,
+		rangeMinDate,
+		rangeMaxDate,
+	);
+
+	// Корректируем endDate, если activeDayCount < limitMin
+	if (limitMin !== undefined && activeDayCount < limitMin) {
+		while (activeDayCount < limitMin) {
+			adjustedEndDate.setDate(adjustedEndDate.getDate() + increment);
+
+			// Проверяем, что adjustedEndDate не выходит за пределы rangeMinDate и rangeMaxDate
+			if (
+				(adjustedEndDate < rangeMinDate && increment < 0)
+				|| (adjustedEndDate > rangeMaxDate && increment > 0)
+			) {
+				break;
+			}
+
+			activeDayCount = countActiveDays(
+				startDate,
+				adjustedEndDate,
+				disabledDatesSet,
+				rangeMinDate,
+				rangeMaxDate,
+			);
+		}
+	} else if (limitMax !== undefined && activeDayCount > limitMax) {
+		while (activeDayCount > limitMax) {
+			adjustedEndDate.setDate(adjustedEndDate.getDate() - increment);
+
+			// Проверяем, что adjustedEndDate не выходит за пределы rangeMinDate и rangeMaxDate
+			if (
+				(adjustedEndDate < rangeMinDate && increment < 0)
+				|| (adjustedEndDate > rangeMaxDate && increment > 0)
+			) {
+				break;
+			}
+
+			activeDayCount = countActiveDays(
+				startDate,
+				adjustedEndDate,
+				disabledDatesSet,
+				rangeMinDate,
+				rangeMaxDate,
+			);
+		}
+	}
+
+	// Убедимся, что adjustedEndDate находится в пределах rangeMinDate и rangeMaxDate
+	if (adjustedEndDate < rangeMinDate) {
+		adjustedEndDate = new Date(rangeMinDate);
+	} else if (adjustedEndDate > rangeMaxDate) {
+		adjustedEndDate = new Date(rangeMaxDate);
+	}
+
+	return adjustedEndDate;
+};
+
 const handleHoverDaysEvent = (e: MouseEvent) => {
 	if (!e.target || !current.self?.selectedDates) return;
 
@@ -75,34 +171,26 @@ const handleHoverDaysEvent = (e: MouseEvent) => {
 	const startDate = getDate(current.self.selectedDates[0]);
 	const hoverDate = getDate(btnDayEl.dataset.calendarDay as FormatDateString);
 
-	const dayDiff = Math.abs(
-		Math.ceil((hoverDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)),
-	) + 1;
+	const disabledDatesSet = new Set(current.self.rangeDisabled);
+	const rangeMinDate = getDate(current.self.range?.min || '1970-01-01');
+	const rangeMaxDate = getDate(current.self.range?.max || '9999-12-31');
 
-	let adjustedEndDate = new Date(hoverDate);
+	const adjustedEndDate = adjustEndDateForLimits(
+		startDate,
+		hoverDate,
+		current.self.limitMin,
+		current.self.limitMax,
+		disabledDatesSet,
+		rangeMinDate,
+		rangeMaxDate,
+	);
 
-	// Применяем ограничения только если они заданы
-	if (current.self.limitMin !== undefined && dayDiff < current.self.limitMin) {
-		const daysToAdjust = current.self.limitMin - 1;
-		if (hoverDate < startDate) {
-			adjustedEndDate = new Date(startDate);
-			adjustedEndDate.setDate(startDate.getDate() - daysToAdjust);
-		} else {
-			adjustedEndDate = new Date(startDate);
-			adjustedEndDate.setDate(startDate.getDate() + daysToAdjust);
-		}
-	} else if (current.self.limitMax !== undefined && dayDiff > current.self.limitMax) {
-		const daysToAdjust = current.self.limitMax - 1;
-		if (hoverDate < startDate) {
-			adjustedEndDate = new Date(startDate);
-			adjustedEndDate.setDate(startDate.getDate() - daysToAdjust);
-		} else {
-			adjustedEndDate = new Date(startDate);
-			adjustedEndDate.setDate(startDate.getDate() + daysToAdjust);
-		}
+	// Если скорректированная дата выходит за пределы диапазона, сбрасываем выбор
+	if (adjustedEndDate < rangeMinDate || adjustedEndDate > rangeMaxDate) {
+		removeHoverEffect();
+		return;
 	}
 
-	// Устанавливаем rangeMin и rangeMax для ограничения выбора
 	current.rangeMin = getDateString(
 		new Date(Math.min(startDate.getTime(), adjustedEndDate.getTime())),
 	);
@@ -115,10 +203,22 @@ const handleHoverDaysEvent = (e: MouseEvent) => {
 	const start = startDate < adjustedEndDate ? startDate : adjustedEndDate;
 	const end = startDate > adjustedEndDate ? startDate : adjustedEndDate;
 
-	for (let i = new Date(start); i <= end; i.setDate(i.getDate() + 1)) {
-		const isFirstDay = i.getTime() === start.getTime();
-		const isLastDay = i.getTime() === end.getTime();
-		addHoverEffect(i, isFirstDay, isLastDay);
+	const increment = 1;
+	const currentDate = new Date(start);
+	while (currentDate <= end) {
+		const dateString = getDateString(currentDate);
+
+		if (currentDate < rangeMinDate || currentDate > rangeMaxDate) {
+			currentDate.setDate(currentDate.getDate() + increment);
+			continue;
+		}
+
+		if (!disabledDatesSet.has(dateString)) {
+			const isFirstDay = currentDate.getTime() === start.getTime();
+			const isLastDay = currentDate.getTime() === end.getTime();
+			addHoverEffect(new Date(currentDate), isFirstDay, isLastDay);
+		}
+		currentDate.setDate(currentDate.getDate() + increment);
 	}
 };
 
@@ -134,41 +234,46 @@ const handleCancelSelectionDays = (e: KeyboardEvent) => {
 
 const handleDayRangedSelection = (self: VanillaCalendar, formattedDate?: FormatDateString) => {
 	if (formattedDate) {
+		const rangeMinDate = getDate(self.range?.min || '1970-01-01');
+		const rangeMaxDate = getDate(self.range?.max || '9999-12-31');
+
 		if (self.selectedDates.length === 0) {
+			// Проверяем, что выбранная дата находится в пределах диапазона
+			const selectedDate = getDate(formattedDate);
+			if (selectedDate < rangeMinDate || selectedDate > rangeMaxDate) {
+				return;
+			}
+
 			// Начинаем новый выбор диапазона
 			self.selectedDates = [formattedDate];
 			self.HTMLElement.addEventListener('mousemove', handleHoverDaysEvent);
 			document.addEventListener('keydown', handleCancelSelectionDays);
 		} else if (self.selectedDates.length === 1) {
-			// Завершаем выбор диапазона
 			const startDate = getDate(self.selectedDates[0]);
 			const endDate = getDate(formattedDate);
 
-			const dayDiff = Math.abs(
-				Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)),
-			) + 1;
+			const disabledDatesSet = new Set(self.rangeDisabled);
 
-			let adjustedEndDate = new Date(endDate);
+			const adjustedEndDate = adjustEndDateForLimits(
+				startDate,
+				endDate,
+				self.limitMin,
+				self.limitMax,
+				disabledDatesSet,
+				rangeMinDate,
+				rangeMaxDate,
+			);
 
-			// Применяем ограничения только если они заданы
-			if (self.limitMin !== undefined && dayDiff < self.limitMin) {
-				const daysToAdjust = self.limitMin - 1;
-				if (endDate < startDate) {
-					adjustedEndDate = new Date(startDate);
-					adjustedEndDate.setDate(startDate.getDate() - daysToAdjust);
-				} else {
-					adjustedEndDate = new Date(startDate);
-					adjustedEndDate.setDate(startDate.getDate() + daysToAdjust);
-				}
-			} else if (self.limitMax !== undefined && dayDiff > self.limitMax) {
-				const daysToAdjust = self.limitMax - 1;
-				if (endDate < startDate) {
-					adjustedEndDate = new Date(startDate);
-					adjustedEndDate.setDate(startDate.getDate() - daysToAdjust);
-				} else {
-					adjustedEndDate = new Date(startDate);
-					adjustedEndDate.setDate(startDate.getDate() + daysToAdjust);
-				}
+			// Если скорректированная дата выходит за пределы диапазона, сбрасываем выбор
+			if (adjustedEndDate < rangeMinDate || adjustedEndDate > rangeMaxDate) {
+				self.selectedDates = [];
+				removeHoverEffect();
+				current.rangeMin = undefined;
+				current.rangeMax = undefined;
+				self.HTMLElement.removeEventListener('mousemove', handleHoverDaysEvent);
+				document.removeEventListener('keydown', handleCancelSelectionDays);
+				create(self);
+				return;
 			}
 
 			const start = startDate < adjustedEndDate ? startDate : adjustedEndDate;
@@ -178,9 +283,23 @@ const handleDayRangedSelection = (self: VanillaCalendar, formattedDate?: FormatD
 			current.rangeMin = getDateString(start);
 			current.rangeMax = getDateString(end);
 
-			const startDateString = getDateString(start);
-			const endDateString = getDateString(end);
-			self.selectedDates = parseDates([`${startDateString}:${endDateString}`]);
+			const selectedDates: FormatDateString[] = [];
+			const currentDate = new Date(start);
+			while (currentDate <= end) {
+				const dateString = getDateString(currentDate);
+
+				if (currentDate < rangeMinDate || currentDate > rangeMaxDate) {
+					currentDate.setDate(currentDate.getDate() + 1);
+					continue;
+				}
+
+				if (!disabledDatesSet.has(dateString)) {
+					selectedDates.push(dateString);
+				}
+				currentDate.setDate(currentDate.getDate() + 1);
+			}
+
+			self.selectedDates = selectedDates;
 
 			self.HTMLElement.removeEventListener('mousemove', handleHoverDaysEvent);
 			document.removeEventListener('keydown', handleCancelSelectionDays);
@@ -192,13 +311,19 @@ const handleDayRangedSelection = (self: VanillaCalendar, formattedDate?: FormatD
 			current.rangeMin = undefined;
 			current.rangeMax = undefined;
 		} else {
-			// Если диапазон уже выбран, сбрасываем и начинаем заново
+			// Сбрасываем и начинаем новый выбор
 			self.selectedDates = [];
 			removeHoverEffect();
 			current.rangeMin = undefined;
 			current.rangeMax = undefined;
 			self.HTMLElement.removeEventListener('mousemove', handleHoverDaysEvent);
 			document.removeEventListener('keydown', handleCancelSelectionDays);
+
+			// Проверяем, что выбранная дата находится в пределах диапазона
+			const selectedDate = getDate(formattedDate);
+			if (selectedDate < rangeMinDate || selectedDate > rangeMaxDate) {
+				return;
+			}
 
 			// Начинаем новый выбор
 			self.selectedDates = [formattedDate];
