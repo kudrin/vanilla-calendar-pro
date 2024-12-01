@@ -85,11 +85,6 @@ const countActiveDays = (
 			}
 		}
 		currentDate.setDate(currentDate.getDate() + increment);
-
-		if (!disabledDatesSet.has(dateString)) {
-			activeDays++;
-		}
-		currentDate.setDate(currentDate.getDate() + increment);
 	}
 	return activeDays;
 };
@@ -222,13 +217,6 @@ const handleHoverDaysEvent = (e: MouseEvent) => {
 				const isLastDay = currentDate.getTime() === end.getTime();
 				addHoverEffect(new Date(currentDate), isFirstDay, isLastDay);
 			}
-		}
-		currentDate.setDate(currentDate.getDate() + increment);
-
-		if (!disabledDatesSet.has(dateString)) {
-			const isFirstDay = currentDate.getTime() === start.getTime();
-			const isLastDay = currentDate.getTime() === end.getTime();
-			addHoverEffect(new Date(currentDate), isFirstDay, isLastDay);
 		}
 		currentDate.setDate(currentDate.getDate() + increment);
 	}
